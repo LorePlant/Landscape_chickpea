@@ -6,7 +6,7 @@ In this README we are going to see the main landscape genomics analysis flow use
 - [**3. Redundancy Analysis RDA**](https://github.com/NuCicer/AlphaSimR/blob/main/README.md#3-trait-accuracy)
 
 packages used:
-'''
+```
 library(fit.models)
 library(adegenet)
 library(vegan)
@@ -31,6 +31,6 @@ library(qqman)
 library(robust)
 library(ggplot2)
 library(ggrepel)
-'''
+```
 
 
