@@ -5,7 +5,8 @@ In this README we are going to see the main landscape genomics analysis flow use
 - [**2. Mantel Test**](https://github.com/NuCicer/AlphaSimR/blob/main/README.md#2-lenght-of-the-breeding-cycle)
 - [**3. Redundancy Analysis RDA**](https://github.com/NuCicer/AlphaSimR/blob/main/README.md#3-trait-accuracy)
 
-packages used:
+## Data input 
+> Environmental (bioclimatic data from WordClim), geographic and genetic data input
 ```
 #bioclim PCdata frame
 PCbio = dataclim[,19:37]
