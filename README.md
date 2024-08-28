@@ -7,30 +7,19 @@ In this README we are going to see the main landscape genomics analysis flow use
 
 packages used:
 ```
-library(fit.models)
-library(adegenet)
-library(vegan)
-library(geosphere)
-library(vcfR)
-library(poppr)
-library(ape)
-library(RColorBrewer)
-library(igraph)
-library(philentropy)
-library(radiator)
-library(assigner)
-library(ggplot2)
-library(futile.matrix)
-library(dartR)
-library(PopGenome)
-library(pegas)
-library(corrplot)
-library(robust)
-library(qvalue)
-library(qqman)
-library(robust)
-library(ggplot2)
-library(ggrepel)
+#bioclim PCdata frame
+PCbio = dataclim[,19:37]
+Env <- scale(PCbio, center=TRUE, scale=TRUE)
+dist.PCbio = dist(Env, method = "euclidean")
+
+#geographic data
+geo = data.frame(dataclim$long, dataclim$lat)
+dist.geo = dist(geo, method = "euclidean")
+
+#genetic  from VCF 
+genoLAND.VCF <- read.vcfR("EMCAP_533_SNPs_chr1-8_geolocalize_miss90_thinned10Kb.vcf.recode.vcf")#import vcf file
+gl.genoLAND <- vcfR2genind(genoLAND.VCF)#transfrom file in genind object
+genotype<-as.data.frame(gl.genoLAND)
 ```
 
 
