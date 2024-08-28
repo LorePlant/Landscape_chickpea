@@ -1,0 +1,847 @@
+#follow:  https://jkzorz.github.io/2019/07/08/mantel-test.html (for Mantel test)
+#follow: https://jkzorz.github.io/2019/07/09/scatter-plots.html (plotting scatter plot with distance matrix)
+setwd("/Users/Asus/OneDrive - Università Politecnica delle Marche/PhD/EMCAP533/Landscape_210")
+#import dataser - copy to with ctrl C tha excel dataset
+dataclim <- read.table(file = "clipboard", 
+                       sep = "\t", header=TRUE) #file Ladscape_genofile.xls
+install.packages("readxl")
+library(readxl)
+dataclim<- read_excel("/Users/Asus/OneDrive - Università Politecnica delle Marche/PhD/EMCAP533/Landscape_210\\landscape_genofile.xlsx")
+
+
+install.packages("vegan")
+install.packages("geosphere")
+install.packages("vcfR")
+if (!require("devtools")) install.packages("devtools")
+devtools::install_github("thierrygosselin/radiator")
+if (!require("devtools")) install.packages("devtools")
+devtools::install_github("thierrygosselin/assigner")
+install.packages("futile.matrix")
+install.packages("dartR")
+install.packages("PopGenome")
+install.packages("pegas")
+install.packages("corrplot")
+install.packages("robust")
+install.packages("devtools")
+library("devtools")
+install_github("jdstorey/qvalue", force = TRUE)
+install.packages("qqman")
+install.packages("adegenet")
+install.packages("fit.models")
+
+library(fit.models)
+library(adegenet)
+library(vegan)
+library(geosphere)
+library(vcfR)
+library(poppr)
+library(ape)
+library(RColorBrewer)
+library(igraph)
+library(philentropy)
+library(radiator)
+library(assigner)
+library(ggplot2)
+library(futile.matrix)
+library(dartR)
+library(PopGenome)
+library(pegas)
+library(corrplot)
+library(robust)
+library(qvalue)
+library(qqman)
+library(robust)
+library(ggplot2)
+library(ggrepel)
+
+#bioclim PCdata frame
+PCbio = dataclim[,19:37]
+Env <- scale(PCbio, center=TRUE, scale=TRUE)
+dist.PCbio = dist(Env, method = "euclidean")
+
+#geographic data
+geo = data.frame(dataclim$long, dataclim$lat)
+dist.geo = dist(geo, method = "euclidean")
+
+#genetic data tentative from VCF 
+genoLAND.VCF <- read.vcfR("EMCAP_533_SNPs_chr1-8_geolocalize_miss90_thinned10Kb.vcf.recode.vcf")#import vcf file
+gl.genoLAND <- vcfR2genind(genoLAND.VCF)#transfrom file in genind object
+genotype<-as.data.frame(gl.genoLAND)
+distgenEUCL <- dist(gl.genoLAND, method = "euclidean", diag = FALSE, upper = FALSE, p = 2)#euclidean distance
+distgenDISS <- diss.dist(gl.genoLAND, percent = FALSE, mat = FALSE)#number of allelic differences between two individuals
+#Allele frequency dataset
+AllFreq <- read.table(file = "clipboard", 
+                      sep = "\t", header=TRUE)#file Sitefrequency
+hist(distgenEUCL)
+#create a genealex file - from this file I can calculate Mantel test from genealex
+genind2genalex(
+  gl.genoLAND,
+  filename = "genealex_genoLand(1).xls",
+  overwrite = FALSE,
+  quiet = FALSE,
+  pop = NULL,
+  allstrata = TRUE,
+  geo = FALSE,
+  geodf = "xy",
+  sep = ",",
+  sequence = FALSE
+)
+
+#genetic data tentative distance matrix from Tassel5
+#convert in excell allels into counts we will code the count of the minor allele: 0 represents an individual homozygous for the major allele, 1 represents a heterozygote, and 2 is homozygous for the alternative allele
+#select only loci without accessions file: genoChickpeaLandscapebeagle.xlsx
+genotype <- read.table(file = "clipboard", 
+                       sep = "\t", header=TRUE)
+
+
+#genetic data tentative genealex file
+
+datageno <- read.table(file = "clipboard", 
+                       sep = "/t", header=TRUE)
+dist.geno = dist(genotype, method = "euclidean")
+
+#Mantel test geo-geno
+geo_geno = mantel(dist.geo, distgenEUCL, method="spearman", permutations=1000,  na.rm = TRUE)
+geo_geno
+summary(lm(distgenEUCL~dist.geo))
+graph = mantel.correlog(distgenEUCL, dist.geo, XY=NULL, n.class=0, break.pts=NULL, 
+                        cutoff=TRUE, r.type="pearson", nperm=999, mult="holm", progressive=TRUE)
+
+plot(graph)
+#plotting Mantel test genetic and geographic distance
+xx = as.vector(dist.geo) #convert distance matrix into a vector
+yy= as.vector(distgenEUCL)
+manatelmatrix = data.frame(xx,yy)
+mm = ggplot(manatelmatrix, aes(y = yy, x = xx)) + 
+  geom_point(size = 4, alpha = 0.75, colour = "black",shape = 21,fill = "grey") + 
+  geom_smooth(method = "lm", colour = "red", alpha = 0.2)+
+  labs(y = "Eucledian genetic distance", x = "Eucledian geographic distance")+
+  theme( axis.text.x = element_text(face = "bold",colour = "black", size = 18), 
+         axis.text.y = element_text(face = "bold", size = 18, colour = "black"), 
+         axis.title= element_text(face = "bold", size = 18, colour = "black"), 
+         panel.background = element_blank(), 
+         panel.border = element_rect(fill = NA, colour = "black"), 
+         legend.title = element_text(size =12, face = "bold", colour = "black"),
+         legend.text = element_text(size = 10, face = "bold", colour = "black"), 
+         legend.position = "top", strip.background = element_rect(fill = "grey90", colour = "black"),
+         strip.text = element_text(size = 9, face = "bold"))
+
+mm
+
+# mantel test ecological and geographic distance
+geo_eco = mantel(dist.geo, dist.PCbio, method="spearman", permutations=1000,  na.rm = TRUE)
+geo_eco
+summary(lm(dist.PCbio~dist.geo))
+graph = mantel.correlog(dist.PCbio, dist.geo, XY=NULL, n.class=0, break.pts=NULL, 
+                        cutoff=TRUE, r.type="pearson", nperm=999, mult="holm", progressive=TRUE)
+
+plot(graph)
+
+xx = as.vector(distgenEUCL) #convert distance matrix into a vector
+yy= as.vector(dist.geo)
+zz = as.vector(dist.PCbio)
+manatelmatrix = data.frame(yy,zz)
+mm = ggplot(manatelmatrix, aes(y = yy, x = zz)) + 
+  geom_point(size = 4, alpha = 0.75, colour = "black",shape = 21,fill = "grey") + 
+  geom_smooth(method = "lm", colour = "red", alpha = 0.2)+
+  labs(y = "Eucledian geographic distance", x = "Eucledian ecological distance")+
+  theme( axis.text.x = element_text(face = "bold",colour = "black", size = 18), 
+         axis.text.y = element_text(face = "bold", size = 18, colour = "black"), 
+         axis.title= element_text(face = "bold", size = 18, colour = "black"), 
+         panel.background = element_blank(), 
+         panel.border = element_rect(fill = NA, colour = "black"), 
+         legend.title = element_text(size =12, face = "bold", colour = "black"),
+         legend.text = element_text(size = 10, face = "bold", colour = "black"), 
+         legend.position = "top", strip.background = element_rect(fill = "grey90", colour = "black"),
+         strip.text = element_text(size = 9, face = "bold"))
+
+mm
+
+# mantel test Genetic distance-ecological distance
+geno_eco = mantel(distgenEUCL, dist.PCbio, method="spearman", permutations=1000,  na.rm = TRUE)
+geno_eco
+summary(lm(dist.PCbio~distgenEUCL))
+graph = mantel.correlog(distgenEUCL, dist.PCbio, XY=NULL, n.class=0, break.pts=NULL, 
+                        cutoff=TRUE, r.type="pearson", nperm=999, mult="holm", progressive=TRUE)
+
+plot(graph)
+
+xx = as.vector(distgenEUCL) #convert distance matrix into a vector
+zz = as.vector(dist.PCbio)
+manatelmatrix = data.frame(zz,xx)
+mm = ggplot(manatelmatrix, aes(y = xx, x = zz))+
+  geom_point(size = 4, alpha = 0.75, colour = "black",shape = 21,fill = "grey") + 
+  geom_smooth(method = "lm", colour = "red", alpha = 0.2)+
+  labs(y = "Euclidean genetic distance", x = "Euclidean ecological distance")+
+  theme( axis.text.x = element_text(face = "bold",colour = "black", size = 18), 
+         axis.text.y = element_text(face = "bold", size = 18, colour = "black"), 
+         axis.title= element_text(face = "bold", size = 18, colour = "black"), 
+         panel.background = element_blank(), 
+         panel.border = element_rect(fill = NA, colour = "black"), 
+         legend.title = element_text(size =12, face = "bold", colour = "black"),
+         legend.text = element_text(size = 10, face = "bold", colour = "black"), 
+         legend.position = "top", strip.background = element_rect(fill = "grey90", colour = "black"),
+         strip.text = element_text(size = 9, face = "bold"))
+
+mm
+
+#partial Mantel test 
+partial_mantel = mantel.partial(distgenEUCL, dist.PCbio, dist.geo, method = "spearman", permutations = 1000,
+                                na.rm = TRUE)
+partial_mantel
+summary(lm(distgenEUCL~dist.PCbio|dist.geo))
+#plotting partial Mantel test
+xx = as.vector(distgenEUCL) #convert distance matrix into a vector
+yy= as.vector(dist.geo)
+zz = as.vector(dist.PCbio)
+partial_mantel_matrix = data.frame(xx,zz,yy)#new data frame with vectorize distance matrix
+
+mm = ggplot(partial_mantel_matrix, aes(y = xx, x = zz)) + 
+  geom_point(size = 2.5, alpha = 0.75, colour = "black",shape = 21, aes(fill = yy)) + 
+  geom_smooth(method = "lm", colour = "red", alpha = 0.2) + 
+  scale_fill_continuous(high = "navy", low = "lightblue")+
+  labs(y = "Eucledian genetic distance", x = "Eucledian ecological distance", fill= "geographic distance")+
+  theme( axis.text.x = element_text(face = "bold",colour = "black", size = 18), 
+         axis.text.y = element_text(face = "bold", size = 18, colour = "black"), 
+         axis.title= element_text(face = "bold", size = 18, colour = "black"), 
+         panel.background = element_blank(), 
+         panel.border = element_rect(fill = NA, colour = "black"), 
+         legend.title = element_text(size =12, face = "bold", colour = "black"),
+         legend.text = element_text(size = 10, face = "bold", colour = "black"), 
+         legend.position = "top", strip.background = element_rect(fill = "grey90", colour = "black"),
+         strip.text = element_text(size = 9, face = "bold"))
+
+
+mm
+
+#redundacy analysis (RDA)
+#https://github.com/Capblancq/RDA-landscape-genomics/blob/main/RDA_landscape_genomics.Rmd
+#standardize climatic variable to ensure that the variable units are comparable
+ecobio = dataclim[,19:37]
+Env <- scale(ecobio, center=TRUE, scale=TRUE)
+Env <- as.data.frame(Env)
+## Neutral population structure table
+PopStruct = dataclim[,11:15]
+#combining geographic, Popstructure, environmental (scaled) variables
+Variables <- data.frame(dataclim$genovcf_code, geo, PopStruct, Env)
+#dataframe genotypic data
+genotype<-as.data.frame(gl.genoLAND)
+
+## Null model
+RDA0 <- rda(genotype ~ 1,  Variables) 
+## Full model
+RDAfull<- rda(genotype ~ bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + bio10 + bio11 + bio12 + bio13 + bio14 + bio15 + bio16 + bio17 + bio18 + bio19, Variables)
+RDAtemp<-rda(genotype ~ bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + bio10 + bio11 , Variables )
+RDAtempsel<-rda(genotype ~  bio8 + bio9, Variables)
+RDAprec<-rda(genotype ~ bio12 + bio13 + bio14 + bio15 + bio16 + bio17 + bio18 + bio19 , Variables )
+RDAprecsel<-rda(genotype ~ bio15 + bio18 + bio19 , Variables )
+#To conduct the selection procedure we used the ordiR2step function of the package vegan and the following stopping criteria: variable significance of p < 0.01 using 1000 permutations, and the adjusted R2 of the global model.  
+mod <- ordiR2step(RDA0, RDAprec, Pin = 0.01, R2permutations = 1000, R2scope = T)
+mod$anova
+#another selection procedure - stepwise procedure select until 
+sqrt(vif.cca(RDAprec))
+RDAtemp<-rda(genotype ~  bio7 + bio3 + bio8 + bio4 + bio6 + bio10 + bio11, Variables )
+sqrt(vif.cca(RDAprec))
+#we selected bio3 and bio7 for temperature and bio17 bio 17 bio19 for precipitation
+#Variance partitioning with partial RDA (pRDA) can identify the contribution of different factors to reducing gene flow and triggering genetic divergence among populations
+##full model
+pRDAfull <- rda(genotype ~ PC1 + PC2 + PC3 + dataclim.long + dataclim.lat + bio8 + bio9 + bio15 + bio18 + bio19, Variables)
+RsquareAdj(pRDAfull)
+anova(pRDAfull)
+## Pure climate model
+pRDAclim <- rda(genotype ~ bio8 + bio9 + bio15 + bio18 + bio19 + Condition(PC1 + PC2 + PC3 + dataclim.long + dataclim.lat), Variables)
+RsquareAdj(pRDAclim)
+anova.cca(pRDAclim)
+## Pure neutral population structure model  
+pRDAstruct <- rda(genotype ~ PC1 + PC2 + PC3 + Condition(dataclim.long + dataclim.lat + bio8 + bio9 + bio15 + bio18 + bio19), Variables)
+RsquareAdj(pRDAstruct)
+anova(pRDAstruct)
+##Pure geography model
+pRDAgeog <- rda(genotype ~ dataclim.long + dataclim.lat + Condition(PC1 + PC2 + PC3 +bio8 + bio9 + bio15 + bio18 + bio19), Variables)
+RsquareAdj(pRDAgeog)
+anova(pRDAgeog)
+#GEO-POPSTRUCTURE
+pRDAIBD <- rda(genotype ~ dataclim.long + dataclim.lat + bio8 + bio9 + bio15 + bio18, Variables)
+RsquareAdj(pRDAIBD)
+anova(pRDAgeog)
+
+corrplot(cor(dataclim[, c("bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9", "bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19", "PC1_prod", "PC2_prod", "PC1_flow", "PC2_flow")]), type="upper")
+
+#draw partial RDA geo+env
+colnames(Variables)[colnames(Variables) == 'dataclim.lat'] <- 'Lat'
+colnames(Variables)[colnames(Variables) == 'dataclim.long'] <- 'Long'
+RDAgeo_env <- rda(genotype ~ Long + Lat + bio8 + bio9 + bio15 + bio18 + bio19, Variables)
+summary(eigenvals(RDAgeo_env, model = "constrained"))
+score<-scores(RDAgeo_env , display = "sites")
+write.table(score, "Genotypevalue_RDAgeo_env")
+data_RDAgeo_env <- read.table(file = "clipboard", 
+                              sep = "\t", header=TRUE)
+TAB_gen <- data.frame(geno_names = row.names(score), score)
+install.packages("ggrepel")
+library(ggrepel)
+TAB_var <- as.data.frame(scores(RDAgeo_env, choices=c(1,2), display="bp"))
+loading_RDAgeo_env_K3<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_point(data = data_RDAgeo_env, aes(x=RDA1, y=RDA2, color=GrK3), size = 4.5) +
+  scale_color_manual(values = c("blue", "darkorange", "chartreuse3", "darkgrey")) + 
+  geom_segment(data = TAB_var, aes(xend=RDA1*10, yend=RDA2*10, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=RDA1*10, y=RDA2*11, label = row.names(TAB_var)), size = 4.5, family = "Times") +
+  xlab("RDA 1: 58 %") + ylab("RDA 2: 19 %") +
+  guides(color=guide_legend(title="Genetic group")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(1)), strip.text = element_text(size=13),axis.text.x = element_text(size = 13), axis.text.y = element_text(size = 13))
+loading_RDAgeo_env_K3
+
+loading_RDAgeo_env_K6<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = data_RDAgeo_env, aes(x=RDA1, y=RDA2, color=GrK6), size = 4.5) +
+  scale_color_manual(values = c("blue", "darkorange", "chartreuse3","yellow", "brown", "purple", "darkgrey")) + 
+  geom_segment(data = TAB_var, aes(xend=RDA1*10, yend=RDA2*10, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=RDA1*10, y=RDA2*11, label = row.names(TAB_var)), size = 4.5, family = "Times") +
+  xlab("RDA 1: 58 %") + ylab("RDA 2: 19 %") +
+  guides(color=guide_legend(title="Genetic group")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(1)), strip.text = element_text(size=13),axis.text.x = element_text(size = 13), axis.text.y = element_text(size = 13))
+loading_RDAgeo_env_K6
+
+ggarrange(loading_RDAgeo_env_K3, loading_RDAgeo_env_K6, nrow=1, ncol=2)
+
+anova(RDAgeo_env)
+
+
+
+#Genotype-Environment Associations: identifying loci under selection
+##first step run a RDA model on the genotypic data matrix using all the normalized bioclim variable as explanotory variable and the first 3 PCs as conditioning variable to account for netrual pop structure 
+RDA_env<- rda(genotype ~  bio8 + bio9 + bio15 + bio18 + bio19 + Condition(gr1 + gr2 + gr3 + dataclim.long + dataclim.lat), Variables )
+RDA_temp<-rda(genotype ~ bio9 + bio8 + Condition(PC1 + PC2 + PC3 + dataclim.long + dataclim.lat), Variables )
+RDA_prec<-rda(genotype ~  bio15 + bio18 + bio19 + Condition(PC1 + PC2 + PC3 + dataclim.long + dataclim.lat), Variables )
+plot(RDA_temp)
+screeplot(RDA_prec, main="Eigenvalues of constrained axes")
+summary(eigenvals(RDA_temp, model = "constrained"))
+#function radapt for FDR p-values and q-values
+install.packages("remotes")
+remotes::install_github("koohyun-kwon/rdadapt")
+source("./src/rdadapt.R")
+rdadapt<-function(rda,K)
+{
+  zscores<-rda$CCA$v[,1:as.numeric(K)]
+  resscale <- apply(zscores, 2, scale)
+  resmaha <- covRob(resscale, distance = TRUE, na.action= na.omit, estim="pairwiseGK")$dist
+  lambda <- median(resmaha)/qchisq(0.5,df=K)
+  reschi2test <- pchisq(resmaha/lambda,K,lower.tail=FALSE)
+  qval <- qvalue(reschi2test)
+  q.values_rdadapt<-qval$qvalues
+  return(data.frame(p.values=reschi2test, q.values=q.values_rdadapt))
+}
+#precipitation
+rdadapt_env<- rdadapt(RDA_prec, 2)
+## P-values threshold after Bonferroni correction
+thres_env <- 0.05/length(rdadapt_env$p.values)
+## Identifying the loci that are below the p-value threshold
+top_outliers <- data.frame(Loci = colnames(genotype)[which(rdadapt_env$p.values<thres_env)], p.value = rdadapt_env$p.values[which(rdadapt_env$p.values<thres_env)], contig = unlist(lapply(strsplit(colnames(genotype)[which(rdadapt_env$p.values<thres_env)], split = "_"), function(x) x[1])))
+write.table(outliers, "Bonferroni_precipitation")
+qvalue <- data.frame(Loci = colnames(genotype), p.value = rdadapt_env$p.values, q.value = rdadapt_env$q.value)
+outliers <- data.frame(Loci = colnames(genotype)[which(rdadapt_env$q.values<0.05)], p.value = rdadapt_env$p.values[which(rdadapt_env$q.values<0.05)])
+locus_scores <- scores(RDA_prec, choices=c(1:2), display="species", scaling="none")
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+TAB_loci$type <- "Not associated"
+TAB_loci$type[TAB_loci$names%in%outliers$Loci] <- "FDR"
+TAB_loci$type[TAB_loci$names%in%top_outliers$Loci] <- "Bonferroni"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Not associated", "FDR", "Bonferroni"))
+TAB_var <- as.data.frame(scores(RDA_prec, choices=c(1,2), display="bp"))
+loading_prec<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_point(data = TAB_loci, aes(x=RDA1*40, y=RDA2*40, colour = type), size = 2.5) +
+  scale_color_manual(values = c("gray90", "#F9A242FF", "#6B4596FF")) +
+  geom_segment(data = TAB_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(TAB_var)), size = 2.5, family = "Times") +
+  xlab("RDA 1: 48.8%") + ylab("RDA 2: 28.9%") +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
+loading_prec
+
+ggsave(loading_prec , filename = "name.tiff", device='tiff', limitsize = F, dpi = 600, scale = 1.3)
+
+##FDR
+qvalue <- data.frame(Loci = colnames(genotype), p.value = rdadapt_env$p.values, q.value = rdadapt_env$q.value)
+write.table(qvalue, "FDR_prec_3PCs")
+
+
+#plotting Mhanattan plot using the library qqman
+Manhattan_prec <- read.table(file = "clipboard", 
+                             sep = "\t", header=TRUE) #import the p value result for precipitation
+
+
+a<-manhattan(Manhattan_prec, col = c("darkblue", "gray60"),suggestiveline = -log10(0.00013416), genomewideline = -log10(6.947918e-07))
+
+
+
+#RDA enriched PRECIPITATION ##chrome-extension://dagcmkpagjlhakfdhnbomgmjdpkdklff/enhanced-reader.html?openApp&pdf=https%3A%2F%2Fonlinelibrary.wiley.com%2Fdoi%2Fpdfdirect%2F10.1111%2F1755-0998.12906
+geno_enrich<-genotype[which(rdadapt_env$q.values<0.05)]
+RDA_prec_enriched<-rda(geno_enrich ~ bio15 +  bio18 + bio19 + Condition(PC1 + PC2 + PC3 + dataclim.long + dataclim.lat), Variables )
+plot(RDA_prec_enriched)
+locus_scores <- scores(RDA_prec_enriched, choices=c(1:2), display="species", scaling="none")
+TAB_geno<- data.frame(geno = row.names(TAB_geno), RDA_prec_enriched$CCA$u)
+#TAB_group<-data.frame(df$geno, df$Kgroup)
+#TAB_geno_group<- merge(TAB_geno, TAB_group, by.x = "geno", by.y = "df.geno")
+colnames(TAB_geno_group)<- c("geno", "RDA1", "RDA2", "RDA3", "genetic_group")
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+TAB_loci$type <- "Adaptive loci"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Adaptive loci"))
+TAB_var <- as.data.frame(scores(RDA_prec_enriched, choices=c(1,2), display="bp"))
+loading_prec<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = TAB_geno, aes(x=RDA1, y=RDA2), size = 2.5, color = "darkblue") +
+  #scale_color_manual(values = c("blue", "#F9A242FF", "limegreen", "darkgray")) +
+  geom_segment(data = TAB_var, aes(xend=RDA1/5, yend=RDA2/5, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=RDA1/4.7, y=RDA2/4.7, label = row.names(TAB_var)), size = 3.5, family = "Times") +
+  xlab("RDA 1: 61.0 %") + ylab("RDA 2: 30.2 %") +
+  guides(color=guide_legend(title="Genetic group")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))+
+  ggtitle("RDA_prec")+
+  theme(plot.title = element_text(color="black", size=14, face="bold.italic"))
+loading_prec
+ggsave(loading_prec , filename = "RDA_prec_enriched(FDR).tiff", device='tiff', limitsize = F, dpi = 600, scale = 1.3)
+plot(RDA_prec_enriched)
+summary(eigenvals(RDA_prec_enriched, model = "constrained"))
+write.table(RDA_prec_enriched$CCA$u, "Genotypevalue_RDA_prec_enriched_PC3")
+anova(RDA_prec_enriched)
+
+
+#temperature
+rdadapt_env<- rdadapt(RDA_temp, 2)
+## P-values threshold after Bonferroni correction
+thres_env <- 0.05/length(rdadapt_env$p.values)
+## Identifying the loci that are below the p-value threshold
+top_outliers <- data.frame(Loci = colnames(genotype)[which(rdadapt_env$p.values<thres_env)], p.value = rdadapt_env$p.values[which(rdadapt_env$p.values<thres_env)], contig = unlist(lapply(strsplit(colnames(genotype)[which(rdadapt_env$p.values<thres_env)], split = "_"), function(x) x[1])))
+write.table(outliers, "Bonferroni_temp")
+qvalue <- data.frame(Loci = colnames(genotype), p.value = rdadapt_env$p.values, q.value = rdadapt_env$q.value)
+outliers <- data.frame(Loci = colnames(genotype)[which(rdadapt_env$q.values<0.05)], p.value = rdadapt_env$p.values[which(rdadapt_env$q.values<0.05)])
+
+locus_scores <- scores(RDA_temp, choices=c(1:2), display="species", scaling="none")
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+TAB_loci$type <- "Not associated"
+TAB_loci$type[TAB_loci$names%in%outliers$Loci] <- "FDR"
+TAB_loci$type[TAB_loci$names%in%top_outliers$Loci] <- "Bonferroni"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Not associated", "FDR", "Bonferroni"))
+TAB_var <- as.data.frame(scores(RDA_temp, choices=c(1,2), display="bp"))
+loading_temp<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = TAB_loci, aes(x=RDA1*40, y=RDA2*40, colour = type), size = 2.5) +
+  scale_color_manual(values = c("gray90", "#F9A242FF", "#6B4596FF")) +
+  geom_segment(data = TAB_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(TAB_var)), size = 2.5, family = "Times") +
+  xlab("RDA 1: 69.7.1%") + ylab("RDA 2: 30.2%") +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
+loading_temp
+ggsave(loading_temp , filename = "name_temp.tiff", device='tiff', limitsize = F, dpi = 600, scale = 1.3)
+##FDR
+qvalue <- data.frame(Loci = colnames(genotype), p.value = rdadapt_env$p.values, q.value = rdadapt_env$q.value)
+write.table(qvalue, "FDR_temp_PC3")
+
+#plotting Mhanattan plot using the library qqman
+Manhattan_temp <- read.table(file = "clipboard", 
+                             sep = "\t", header=TRUE) #import the p value result for precipitation
+
+
+manhattan(Manhattan_temp, col = c("darkred", "gray60"),suggestiveline = -log10(0.000129901), genomewideline = -log10(6.947918e-07))
+
+
+
+
+
+
+
+#RDA enriched TEMPERATURE ##chrome-extension://dagcmkpagjlhakfdhnbomgmjdpkdklff/enhanced-reader.html?openApp&pdf=https%3A%2F%2Fonlinelibrary.wiley.com%2Fdoi%2Fpdfdirect%2F10.1111%2F1755-0998.12906
+geno_enrich<-genotype[which(rdadapt_env$q.values<0.05)]
+RDA_temp_enriched<-rda(geno_enrich ~ bio8 +  bio9 + Condition(PC1 + PC2 + PC3+ dataclim.long + dataclim.lat), Variables )
+TAB_geno<- data.frame(RDA_temp_enriched$CCA$u)
+locus_scores <- scores(RDA_temp_enriched, choices=c(1:2), display="species", scaling="none")
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+TAB_loci$type <- "Adaptive loci"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Adaptive loci"))
+TAB_var <- as.data.frame(scores(RDA_temp_enriched, choices=c(1,2), display="bp"))
+loading_temp<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = TAB_geno, aes(x=RDA1*2.5, y=RDA2*2.5), size = 2.5, color ="darkred") +
+  geom_segment(data = TAB_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=RDA1, y=RDA2, label = row.names(TAB_var)), size = 2.5, family = "Times") +
+  xlab("RDA 1: 55.2 %") + ylab("RDA 2: 44.8 %") +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))+
+  ggtitle("RDA_temp")+
+  theme(plot.title = element_text(color="black", size=14, face="bold.italic"))
+loading_temp
+ggsave(loading_prec , filename = "RDA_temp_enriched.tiff", device='tiff', limitsize = F, dpi = 600, scale = 1.3)
+plot(RDA_temp_enriched)
+summary(eigenvals(RDA_temp_enriched, model = "constrained"))
+write.table(RDA_temp_enriched$CCA$u, "Genotypevalue_RDA_temp_enriched_PC3")
+anova(RDA_temp_enriched)
+library(ggpubr)
+ggarrange(loading_temp, loading_prec, nrow =1, ncol=2)
+
+
+df <- read.table(file = "clipboard", 
+                       sep = "\t", header=TRUE) #file Ladscape_genofile
+
+
+
+
+model = lm(log_PC5 ~log_PC3, data = df)
+summary(model)
+plot(model)
+abline(model)
+summary(model)$r.squared
+
+boxplot(df$PC1_flow ~ df$adapt, data = df)
+plot(df$RDA2_prec ~ df$PC1_flow)
+
+B<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = df, aes(x=PC1_flow, y=RDA1_temp, color=Kgroup_K3), size = 2.5) +
+  scale_color_manual(values = c("blue", "darkorange", "chartreuse3","darkgrey")) +
+  xlab("PC1 flowering") + ylab("RDA1_temp") +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
+B
+
+C<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = df, aes(x=PC1_flow, y=RDA2_prec, color=Kgroup_K3), size = 2.5) +
+  scale_color_manual(values = c("blue", "darkorange", "chartreuse3","darkgrey")) +
+  xlab("PC1 flowering") + ylab("RDA2_prec") +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
+C
+
+
+
+B<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = df, aes(x=PC1_flow, y=RDA1_temp, color=Kgroup_K6), size = 2.5) +
+  scale_color_manual(values = c("blue", "darkorange", "chartreuse3","yellow", "brown", "purple", "darkgrey")) +
+  xlab("PC1 flowering") + ylab("RDA1_temp") +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
+B
+
+C<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = df, aes(x=PC1_flow, y=RDA2_prec, color=Kgroup_K6), size = 2.5) +
+  scale_color_manual(values = c("blue", "darkorange", "chartreuse3","yellow", "brown", "purple", "darkgrey")) +
+  xlab("PC1 flowering") + ylab("RDA2_prec") +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
+C
+
+ggarrange(B,C,nrow=1,ncol=2)
+
+dt<-as.vector(df)
+chisq <- chisq.test(dt$early, dt$drough, simulate.p.value = TRUE, B = 1000)
+chisq
+chisq$p.value
+
+
+##########################################
+#scatter plots correlations PC3-PC5 corrections
+temp_ass <- read.table(file = "clipboard", 
+                 sep = "\t", header=TRUE) #file Ladscape_genofile
+
+
+
+
+model = lm(log_PC5 ~log_PC3, data = temp_ass)
+summary(model)
+plot(model)
+abline(model)
+summary(model)$r.squared
+
+plot(temp_ass$log_PC5 ~ temp_ass$log_PC3)
+
+
+
+B<-ggscatter(temp_ass, x = "log_PC5", y = "log_PC3", add = "reg.line") +
+  stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~~~~")))
+  #stat_regline_equation(label.x = 3, label.y = 7)
+
+B
+
+
+prec_ass <- read.table(file = "clipboard", 
+                       sep = "\t", header=TRUE) #file Ladscape_genofile
+
+
+
+
+model = lm(log_PC5 ~log_PC3, data = prec_ass)
+summary(model)
+plot(model)
+abline(model)
+summary(model)$r.squared
+
+
+
+
+C<-ggscatter(prec_ass, x = "log_PC5", y = "log_PC3", add = "reg.line") +
+  stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~~~~")))
+  #stat_regline_equation(aes(label = paste (..eq.label.., ..rr.label.., ..p.label.., sep = "~~~~"),label.x = 3, label.y = 7))
+
+C
+
+
+
+ggarrange(B,C, nrow=1,ncol=2)
+
+
+
+
+
+
+#which loci are highlighted
+which(rdadapt_env[,2] < 0.1)
+outliers <- data.frame(Loci = colnames(genotype)[which(rdadapt_env$q.values<0.1)], p.value = rdadapt_env$p.values[which(rdadapt_env$q.values<0.1)])
+write.table(outliers, "QTLsRDAtemperature")
+#biplot
+pvalue_qvalueRDAtemp <- read.table(file = "clipboard", 
+                                   sep = "\t", header=TRUE)
+write.table(RDA_temp$CCA$v, "SNPloadingRDAtemperature")
+SNPloading_RDAtemp <- read.table(file = "clipboard", 
+                                 sep = "\t", header=TRUE)
+
+
+loading<- as.data.frame(RDA_temp$CCA$biplot[ ,1:2], row.names = NULL)
+
+ggplot() +
+  geom_point(aes(x=SNPloading_RDAtemp[,2], y=SNPloading_RDAtemp[,3]),  size = 2.5, alpha = 1, col = "gray86") +
+  geom_point(aes(x=SNPloading_RDAtemp[which(pvalue_qvalueRDAtemp[,3] < 0.2),2],
+                 y=SNPloading_RDAtemp[which(pvalue_qvalueRDAtemp[,3] < 0.2),3]),  size = 2.5, alpha = 1, col = "red") +
+  geom_segment(aes(xend=RDA_temp$CCA$biplot[,1]/35, yend=RDA_temp$CCA$biplot[,2]/35, x=0, y=0),
+               colour="black", size=0.5, linetype=1,
+               arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_text(aes(x=1.2*loading[,1]/35, y=1.2*loading[,2]/35,
+                label = rownames(loading))) + xlab("RDA 1 (65.1 %) ") + ylab("RDA 2 (34.9 %) ") + #write RDA percentage from summery eighvalues
+  theme_bw() +
+  theme(legend.position="none")
+
+#identify RDA candidates using cutoff based on RDA axis distribution
+
+#loadings of the SNPs (their location) in the ordination space to determine which SNPs are candidates for local adaptation
+load.rda <- RDA_temp$CCA$v[,1:3]
+
+#loading distribution
+hist(load.rda[,1], main="Loadings on RDA1")
+hist(load.rda[,2], main="Loadings on RDA2")
+hist(load.rda[,3], main="Loadings on RDA3") 
+#2.5 standard deviation cutoff 
+#create an excel file with RDAloadings for all the SNP. Then on excel selecte snp with loding higher or lower of two S.D for RDA1 and RDA2
+write.table(RDA_env$CCA$v, "SNPloading RDA")
+SNPloading <- read.table(file = "clipboard", 
+                         sep = "\t", header=TRUE) #SNPLoadingRDA.xlsx - prepare an excell table with candidate snp a related RDA1 and RDA2 values
+#biplot
+ggplot() +
+  geom_point(aes(x=RDA_env$CCA$v[,1], y=RDA_env$CCA$v[,2]), col = "gray86") +
+  geom_point(aes(x=SNPloading[ ,2],
+                 y=SNPloading[ ,3]), col = "orange") +
+  geom_segment(aes(xend=RDA_env$CCA$biplot[,1]/10, yend=RDA_env$CCA$biplot[,2]/10, x=0, y=0),
+               colour="black", size=0.5, linetype=1,
+               arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_text(aes(x=1.2*RDA_env$CCA$biplot[,1]/10, y=1.2*RDA_env$CCA$biplot[,2]/10,
+                label = colnames(Env[,1:18]))) + xlab("RDA 1 16%") + ylab("RDA 2 13%") +
+  theme_bw() +
+  theme(legend.position="none")
+
+
+#manhattan plot
+#table with all SNP and Pvalue
+SnpPvalue <- read.table(file = "clipboard", 
+                        sep = "\t", header=TRUE)
+ggplot() +
+  geom_point(aes(x=(SnpPvalue[,9]), y=-log10(SnpPvalue[,7])),
+             col = "gray83") +
+  geom_point(aes(x=(SNPloading[,6]),
+                 y=-log10(SNPloading[,4])),
+             col = "orange") +
+  xlab("SNPs") + ylab("-log10(p.values)") +  theme_bw()
+
+#which environmental predictors are most strongly correlated with the first three RDA axes:
+loading<- as.data.frame(RDA_temp$CCA$biplot[ ,1:2], row.names = NULL)
+
+
+#spatial distribution RDA results ##chrome-extension://dagcmkpagjlhakfdhnbomgmjdpkdklff/enhanced-reader.html?openApp&pdf=https%3A%2F%2Fonlinelibrary.wiley.com%2Fdoi%2Fpdfdirect%2F10.1111%2F1755-0998.12906
+write.table(RDA_prec$CCA$u, "RDAprecSpatial")
+
+
+
+
+#LFMM for adaptive loci detection - one env variable at the time or summerize env variation with PCs https://bookdown.org/hhwagner1/LandGenCourse_book/WE_11.html
+devtools::install_github("bcm-uga/lfmm")
+install.packages("RSpectra")
+library(RSpectra)
+library(lfmm)
+Y <- genotype
+X <- ecobio$bio19  
+mod.lfmm <- lfmm_ridge(Y, 
+                       X, 
+                       K = 3)
+pv <- lfmm_test(Y = Y,
+                X = X,
+                lfmm = mod.lfmm,
+                calibrate = "gif")
+
+pvalues <- pv$calibrated.pvalue
+write.table(pvalues, "pvaluesBIO19LFMM")
+hist(pvalues)
+q<-qvalue(pvalues)
+hist(q)
+qi<-q$qvalues
+write.table(qi, "qvaluesBIO19LFMM")
+
+plot(-log10(pvalues), pch = 19,
+     cex = .2, col = "grey", xlab = "SNP")
+points(ecobio$bio19 ,
+       -log10(pvalues)[ecobio$PC1temp ],
+       type = "h", col = "blue")
+
+
+pvalues <- pv$calibratedpvalue
+#perform QQplot
+qqplot(rexp(length(pvalues), rate = log(10)),
+       -log10(pvalues), xlab = "Expected quantile",
+       pch = 19, cex = .4)
+abline(0,1)
+write.table(pvalues, "pvaluesLFMMENV")
+
+#FDR pvalue
+envpv <- lfmm_test(Y, X, lfmm=mod.lfmm, calibrate="gif")
+hist(envpv$pvalue[,1], main="calibrated p-values")
+envqv <- qvalue(envpv$calibrated.pvalue)$qvalues
+hist(envqv)
+
+length(which(envqv < 0.6)) ## h.w many SNPs have an FDR < 10%?
+(env.FDR.1 <- colnames(genotype)[which(envqv < 0.6)]) ## i.entify which SNPs these are
+
+
+#Population diversity
+genoLAND.VCF <- read.vcfR("genoLandscape.vcf")#import vcf file
+genoLAND.VCF
+pops <- read.table(file = "clipboard", 
+                   sep = "\t", header=TRUE) #file populations
+pop = as.factor(pops[, 'geogroup']) #trasform pops in factor
+pop
+myDiff <- genetic_diff(vcf= genoLAND.VCF, pops = pop, method = 'nei')
+write.table(myDiff, file = "heterozygosity_pops", sep = "\t", row.names = TRUE, col.names = NA)
+plot(getPOS(genoLAND.VCF), myDiff$Gprimest,  pch = 20, col = "#1E90FF44", xlab = "", ylab = "", ylim = c(0, 1), xaxt = "n")
+axis(side = 1, at = seq(0, 1e5, by = 1e4), labels = seq(0, 100, by = 10))
+title(xlab='Genomic position (bp)')
+title(ylab = expression(italic("G'"["ST"])))
+
+
+
+
+
+######## enriched PCA precipitation QTLs in common with PC2 and PC3 for pop structure correction
+
+RDA_prec_PC3<-rda(genotype ~  bio15 + bio18 + bio19 + Condition(PC1 + PC2 + PC3 + dataclim.long + dataclim.lat), Variables )
+RDA_prec_PC2<-rda(genotype ~  bio15 + bio18 + bio19 + Condition(PC1 + PC2 + dataclim.long + dataclim.lat), Variables )
+#set dataset for PC2 associations
+rdadapt_PC2<- data.frame(rdadapt(RDA_prec_PC2, 2)
+log_PC2<-(-log10(rdadapt_PC2$p.values))
+rdadapt_PC2$log_PC2<-log_PC2  
+
+#set dataset for PC3 associations
+rdadapt_PC3<- data.frame(rdadapt(RDA_prec_PC3, 2))
+log_PC3<-(-log10(rdadapt_PC3$p.values))
+ rdadapt_PC3$log_PC3<-log_PC3  
+
+plot(rdadapt_PC2$log_PC2, rdadapt_PC3$log_PC3)
+PC_comparisons<-data.frame(rdadapt_PC2$log_PC2, rdadapt_PC3$log_PC3)
+
+install.packages("gghighlight")
+library(gghighlight)
+D<- ggplot(data=PC_comparisons, aes(x=rdadapt_PC2.log_PC2, y=rdadapt_PC3.log_PC3)) + 
+  geom_point(size = 5)+
+  theme_bw(base_size = 15)+
+  labs(x = "associations PC2 correction", y = "associations PC3 correction")+
+  geom_vline(xintercept = 3.5, color = "black", linewidth=1)+
+  geom_hline(yintercept = 3.5, color = "black", linewidth=1)+
+gghighlight((rdadapt_PC3.log_PC3 > 3.5)&(rdadapt_PC2.log_PC2 > 3.5))
+#geom_text(data=Tk, aes(label = cld, x = ENV, y=quant), vjust =-1, hjust =-1, size =5)
+
+D
+
+
+######## enriched PCA precipitation QTLs in common with PC2 and PC3 for pop structure correction
+
+RDA_prec_PC3<-rda(genotype ~  bio15 + bio18 + bio19 + Condition(PC1 + PC2 + PC3 + dataclim.long + dataclim.lat), Variables )
+RDA_prec_PC2<-rda(genotype ~  bio15 + bio18 + bio19 + Condition(PC1 + PC2 + dataclim.long + dataclim.lat), Variables )
+#set dataset for PC2 associations
+rdadapt_PC2<- data.frame(rdadapt(RDA_prec_PC2, 2)
+log_PC2<-(-log10(rdadapt_PC2$p.values))
+rdadapt_PC2$log_PC2<-log_PC2  
+
+#set dataset for PC3 associations
+rdadapt_PC3<- data.frame(rdadapt(RDA_prec_PC3, 2))
+log_PC3<-(-log10(rdadapt_PC3$p.values))
+ rdadapt_PC3$log_PC3<-log_PC3  
+
+plot(rdadapt_PC2$log_PC2, rdadapt_PC3$log_PC3)
+PC_comparisons<-data.frame(rdadapt_PC2$log_PC2, rdadapt_PC3$log_PC3)
+
+install.packages("gghighlight")
+library(gghighlight)
+D<- ggplot(data=PC_comparisons, aes(x=rdadapt_PC2.log_PC2, y=rdadapt_PC3.log_PC3)) + 
+  geom_point(size = 5)+
+  theme_bw(base_size = 15)+
+  labs(x = "associations PC2 correction", y = "associations PC3 correction")+
+  geom_vline(xintercept = 3.5, color = "black", linewidth=1)+
+  geom_hline(yintercept = 3.5, color = "black", linewidth=1)+
+gghighlight((rdadapt_PC3.log_PC3 > 3.5)&(rdadapt_PC2.log_PC2 > 3.5))
+#geom_text(data=Tk, aes(label = cld, x = ENV, y=quant), vjust =-1, hjust =-1, size =5)
+
+D
+
+######## enriched PCA temperature QTLs in common with PC2 and PC3 for pop structure correction
+
+RDA_temp_PC3<-rda(genotype ~  bio8 + bio9 + Condition(PC1 + PC2 + PC3 + dataclim.long + dataclim.lat), Variables )
+RDA_temp_PC2<-rda(genotype ~  bio8 + bio9 + Condition(PC1 + PC2 + dataclim.long + dataclim.lat), Variables )
+#set dataset for PC2 associations
+rdadapt_PC2<- data.frame(rdadapt(RDA_temp_PC2, 2))
+log_PC2<-(-log10(rdadapt_PC2$p.values))
+ rdadapt_PC2$log_PC2<-log_PC2  
+                         
+ #set dataset for PC3 associations
+rdadapt_PC3<- data.frame(rdadapt(RDA_temp_PC3, 2))
+log_PC3<-(-log10(rdadapt_PC3$p.values))
+rdadapt_PC3$log_PC3<-log_PC3  
+                         
+plot(rdadapt_PC2$log_PC2, rdadapt_PC3$log_PC3)
+ PC_comparisons<-data.frame(rdadapt_PC2$log_PC2, rdadapt_PC3$log_PC3)
+                         
+install.packages("gghighlight")
+library(gghighlight)
+H<- ggplot(data=PC_comparisons, aes(x=rdadapt_PC2.log_PC2, y=rdadapt_PC3.log_PC3)) + 
+geom_point(size = 5)+
+theme_bw(base_size = 15)+
+labs(x = "associations PC2 correction", y = "associations PC3 correction")+
+geom_vline(xintercept = 6.33, color = "black", linewidth=1)+
+geom_hline(yintercept = 3.88, color = "black", linewidth=1)+
+gghighlight((rdadapt_PC3.log_PC3 > 3.5)&(rdadapt_PC2.log_PC2 > 6.33))
+ #geom_text(data=Tk, aes(label = cld, x = ENV, y=quant), vjust =-1, hjust =-1, size =5)
+                         
+H
+
