@@ -288,3 +288,113 @@ Manhattan_prec <- read.table(file = "clipboard",
 
 a<-manhattan(Manhattan_prec, col = c("darkblue", "gray60"),suggestiveline = -log10(0.00013416), genomewideline = -log10(6.947918e-07))
 ```
+We then run RDA on the total number of associated GEA SNPs identified using FDR (q<0.05) threshold. From the following chunk of code we obtained a data table with genotype RDA score on both RDA axis and a biplot to visualize the orientation of environmental variable on the PCA score
+The genotype RDA score represent the adaptive value of each genotype. Using QGIS we mapped and interpolated the RDA genotype value to visualize the spatial variation of the adaptive variation and to identify geographic area that potentially have high concetration of adaptive alleles
+
+```
+#RDA enriched PRECIPITATION ##chrome-extension://dagcmkpagjlhakfdhnbomgmjdpkdklff/enhanced-reader.html?openApp&pdf=https%3A%2F%2Fonlinelibrary.wiley.com%2Fdoi%2Fpdfdirect%2F10.1111%2F1755-0998.12906
+geno_enrich<-genotype[which(rdadapt_env$q.values<0.05)]
+RDA_prec_enriched<-rda(geno_enrich ~ bio15 +  bio18 + bio19 + Condition(PC1 + PC2 + PC3 + dataclim.long + dataclim.lat), Variables )
+plot(RDA_prec_enriched)
+locus_scores <- scores(RDA_prec_enriched, choices=c(1:2), display="species", scaling="none")
+TAB_geno<- data.frame(geno = row.names(TAB_geno), RDA_prec_enriched$CCA$u)
+#TAB_group<-data.frame(df$geno, df$Kgroup)
+#TAB_geno_group<- merge(TAB_geno, TAB_group, by.x = "geno", by.y = "df.geno")
+colnames(TAB_geno_group)<- c("geno", "RDA1", "RDA2", "RDA3", "genetic_group")
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+TAB_loci$type <- "Adaptive loci"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Adaptive loci"))
+TAB_var <- as.data.frame(scores(RDA_prec_enriched, choices=c(1,2), display="bp"))
+loading_prec<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = TAB_geno, aes(x=RDA1, y=RDA2), size = 2.5, color = "darkblue") +
+  #scale_color_manual(values = c("blue", "#F9A242FF", "limegreen", "darkgray")) +
+  geom_segment(data = TAB_var, aes(xend=RDA1/5, yend=RDA2/5, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=RDA1/4.7, y=RDA2/4.7, label = row.names(TAB_var)), size = 3.5, family = "Times") +
+  xlab("RDA 1: 61.0 %") + ylab("RDA 2: 30.2 %") +
+  guides(color=guide_legend(title="Genetic group")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))+
+  ggtitle("RDA_prec")+
+  theme(plot.title = element_text(color="black", size=14, face="bold.italic"))
+loading_prec
+ggsave(loading_prec , filename = "RDA_prec_enriched(FDR).tiff", device='tiff', limitsize = F, dpi = 600, scale = 1.3)
+plot(RDA_prec_enriched)
+summary(eigenvals(RDA_prec_enriched, model = "constrained"))
+write.table(RDA_prec_enriched$CCA$u, "Genotypevalue_RDA_prec_enriched_PC3")
+anova(RDA_prec_enriched)
+```
+The same procedure was repeated for GEA on temperature variation 
+
+```
+#temperature
+rdadapt_env<- rdadapt(RDA_temp, 2)
+## P-values threshold after Bonferroni correction
+thres_env <- 0.05/length(rdadapt_env$p.values)
+## Identifying the loci that are below the p-value threshold
+top_outliers <- data.frame(Loci = colnames(genotype)[which(rdadapt_env$p.values<thres_env)], p.value = rdadapt_env$p.values[which(rdadapt_env$p.values<thres_env)], contig = unlist(lapply(strsplit(colnames(genotype)[which(rdadapt_env$p.values<thres_env)], split = "_"), function(x) x[1])))
+write.table(outliers, "Bonferroni_temp")
+qvalue <- data.frame(Loci = colnames(genotype), p.value = rdadapt_env$p.values, q.value = rdadapt_env$q.value)
+write.table(qvalue, "FDR_temp_PC3")
+outliers <- data.frame(Loci = colnames(genotype)[which(rdadapt_env$q.values<0.05)], p.value = rdadapt_env$p.values[which(rdadapt_env$q.values<0.05)])
+
+locus_scores <- scores(RDA_temp, choices=c(1:2), display="species", scaling="none")
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+TAB_loci$type <- "Not associated"
+TAB_loci$type[TAB_loci$names%in%outliers$Loci] <- "FDR"
+TAB_loci$type[TAB_loci$names%in%top_outliers$Loci] <- "Bonferroni"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Not associated", "FDR", "Bonferroni"))
+TAB_var <- as.data.frame(scores(RDA_temp, choices=c(1,2), display="bp"))
+loading_temp<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = TAB_loci, aes(x=RDA1*40, y=RDA2*40, colour = type), size = 2.5) +
+  scale_color_manual(values = c("gray90", "#F9A242FF", "#6B4596FF")) +
+  geom_segment(data = TAB_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(TAB_var)), size = 2.5, family = "Times") +
+  xlab("RDA 1: 69.7.1%") + ylab("RDA 2: 30.2%") +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
+loading_temp
+ggsave(loading_temp , filename = "name_temp.tiff", device='tiff', limitsize = F, dpi = 600, scale = 1.3)
+
+#plotting Mhanattan plot using the library qqman
+Manhattan_temp <- read.table(file = "clipboard", 
+                             sep = "\t", header=TRUE) #import the p value result for precipitation
+
+
+manhattan(Manhattan_temp, col = c("darkred", "gray60"),suggestiveline = -log10(0.000129901), genomewideline = -log10(6.947918e-07))
+
+
+#RDA enriched TEMPERATURE ##chrome-extension://dagcmkpagjlhakfdhnbomgmjdpkdklff/enhanced-reader.html?openApp&pdf=https%3A%2F%2Fonlinelibrary.wiley.com%2Fdoi%2Fpdfdirect%2F10.1111%2F1755-0998.12906
+geno_enrich<-genotype[which(rdadapt_env$q.values<0.05)]
+RDA_temp_enriched<-rda(geno_enrich ~ bio8 +  bio9 + Condition(PC1 + PC2 + PC3+ dataclim.long + dataclim.lat), Variables )
+TAB_geno<- data.frame(RDA_temp_enriched$CCA$u)
+locus_scores <- scores(RDA_temp_enriched, choices=c(1:2), display="species", scaling="none")
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+TAB_loci$type <- "Adaptive loci"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Adaptive loci"))
+TAB_var <- as.data.frame(scores(RDA_temp_enriched, choices=c(1,2), display="bp"))
+loading_temp<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = TAB_geno, aes(x=RDA1*2.5, y=RDA2*2.5), size = 2.5, color ="darkred") +
+  geom_segment(data = TAB_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=RDA1, y=RDA2, label = row.names(TAB_var)), size = 2.5, family = "Times") +
+  xlab("RDA 1: 55.2 %") + ylab("RDA 2: 44.8 %") +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))+
+  ggtitle("RDA_temp")+
+  theme(plot.title = element_text(color="black", size=14, face="bold.italic"))
+loading_temp
+ggsave(loading_prec , filename = "RDA_temp_enriched.tiff", device='tiff', limitsize = F, dpi = 600, scale = 1.3)
+plot(RDA_temp_enriched)
+summary(eigenvals(RDA_temp_enriched, model = "constrained"))
+write.table(RDA_temp_enriched$CCA$u, "Genotypevalue_RDA_temp_enriched_PC3")
+anova(RDA_temp_enriched)
+library(ggpubr)
+ggarrange(loading_temp, loading_prec, nrow =1, ncol=2)
+```
