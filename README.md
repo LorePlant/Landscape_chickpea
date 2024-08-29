@@ -149,3 +149,27 @@ sqrt(vif.cca(RDAprec))
 RDAprecsel<-rda(genotype ~ bio15 + bio18 + bio19 , Variables )
 ```
 
+
+```
+##full model
+pRDAfull <- rda(genotype ~ PC1 + PC2 + PC3 + dataclim.long + dataclim.lat + bio8 + bio9 + bio15 + bio18 + bio19, Variables)
+RsquareAdj(pRDAfull)
+anova(pRDAfull)
+## Pure climate model
+pRDAclim <- rda(genotype ~ bio8 + bio9 + bio15 + bio18 + bio19 + Condition(PC1 + PC2 + PC3 + dataclim.long + dataclim.lat), Variables)
+RsquareAdj(pRDAclim)
+anova.cca(pRDAclim)
+## Pure neutral population structure model  
+pRDAstruct <- rda(genotype ~ PC1 + PC2 + PC3 + Condition(dataclim.long + dataclim.lat + bio8 + bio9 + bio15 + bio18 + bio19), Variables)
+RsquareAdj(pRDAstruct)
+anova(pRDAstruct)
+##Pure geography model
+pRDAgeog <- rda(genotype ~ dataclim.long + dataclim.lat + Condition(PC1 + PC2 + PC3 +bio8 + bio9 + bio15 + bio18 + bio19), Variables)
+RsquareAdj(pRDAgeog)
+anova(pRDAgeog)
+#GEO-POPSTRUCTURE
+pRDAIBD <- rda(genotype ~ dataclim.long + dataclim.lat + bio8 + bio9 + bio15 + bio18, Variables)
+RsquareAdj(pRDAIBD)
+anova(pRDAgeog)
+```
+
