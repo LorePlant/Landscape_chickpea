@@ -220,7 +220,7 @@ loading_RDAgeo_env_K6
 
 ggarrange(loading_RDAgeo_env_K3, loading_RDAgeo_env_K6, nrow=1, ncol=2)
 ```
-We are going to use the RDA for Genotype Environment Association (GEA) to identify loci associated with multivariate environmental space. We run the analysis for the two groups of temperature and precipitation variables considering the geographic (latitude and longitude) and demographic (first three PCs from genomic data) as covariates on both of them. The procedure illustrated in Thibaut Capblancq & Brenna Forester (2021) is to calcolate the Mahallanois distance of SNP markers from the origin in the RDA space. From the distribution of distances for all SNPs Pvalue and qvalus are determinated using the function _rdadapt_
+We are going to use the RDA for Genotype Environment Association (GEA) to identify loci associated with multivariate environmental space. We run the analysis for the two groups of temperature and precipitation variables considering the geographic (latitude and longitude) and demographic (first three PCs from genomic data) as covariates on both of them. The procedure illustrated in Thibaut Capblancq & Brenna Forester (2021) is to calcolate the Mahalanobis distance of SNP markers from the origin in the RDA space. The Mahalanobis distance accounting for the different variance on the two RDA axis allow to correctely rank the SNP distqnces from the RDA origin. From the distribution of distances for all SNPs Pvalue and qvalus are determinated using the function _rdadapt_
 ```
 #Genotype-Environment Associations: identifying loci under selection
 ##first step run a RDA model on the genotypic data matrix using all the normalized bioclim variable as explanotory variable and the first 3 PCs as conditioning variable to account for netrual pop structure 
@@ -245,5 +245,46 @@ rdadapt<-function(rda,K)
   q.values_rdadapt<-qval$qvalues
   return(data.frame(p.values=reschi2test, q.values=q.values_rdadapt))
 }
+```
+We start the analysis for the precipitation variables applying two thresholds to identifying highly associated SNPs using a Bonferroni correction (Pvqlue = 0.05/numb. comparison) and less associated SNP using a False Discovery Rate (FDR) q values<0.05. The results are illustrated in the RDA biplot.
+
+```
+#precipitation
+rdadapt_env<- rdadapt(RDA_prec, 2)
+## P-values threshold after Bonferroni correction
+thres_env <- 0.05/length(rdadapt_env$p.values)
+## Identifying the loci that are below the p-value threshold
+top_outliers <- data.frame(Loci = colnames(genotype)[which(rdadapt_env$p.values<thres_env)], p.value = rdadapt_env$p.values[which(rdadapt_env$p.values<thres_env)], contig = unlist(lapply(strsplit(colnames(genotype)[which(rdadapt_env$p.values<thres_env)], split = "_"), function(x) x[1])))
+write.table(outliers, "Bonferroni_precipitation")
+qvalue <- data.frame(Loci = colnames(genotype), p.value = rdadapt_env$p.values, q.value = rdadapt_env$q.value)
+outliers <- data.frame(Loci = colnames(genotype)[which(rdadapt_env$q.values<0.05)], p.value = rdadapt_env$p.values[which(rdadapt_env$q.values<0.05)])
+locus_scores <- scores(RDA_prec, choices=c(1:2), display="species", scaling="none")
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+TAB_loci$type <- "Not associated"
+TAB_loci$type[TAB_loci$names%in%outliers$Loci] <- "FDR"
+TAB_loci$type[TAB_loci$names%in%top_outliers$Loci] <- "Bonferroni"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Not associated", "FDR", "Bonferroni"))
+TAB_var <- as.data.frame(scores(RDA_prec, choices=c(1,2), display="bp"))
+loading_prec<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_point(data = TAB_loci, aes(x=RDA1*40, y=RDA2*40, colour = type), size = 2.5) +
+  scale_color_manual(values = c("gray90", "#F9A242FF", "#6B4596FF")) +
+  geom_segment(data = TAB_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(TAB_var)), size = 2.5, family = "Times") +
+  xlab("RDA 1: 48.8%") + ylab("RDA 2: 28.9%") +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
+loading_prec
+```
+The same results can be illustrated by entering the genome position of each SNP to plot a Manhattan plot. We entered Bonferroni and FDR threshold at the respective logP values -log10(0.00013416)and -log10(6.947918e-07). For major detail see the package _qqman_
+
+```
+#plotting Mhanattan plot using the library qqman
+Manhattan_prec <- read.table(file = "clipboard", 
+                             sep = "\t", header=TRUE) #import the p value result for precipitation
 
 
+a<-manhattan(Manhattan_prec, col = c("darkblue", "gray60"),suggestiveline = -log10(0.00013416), genomewideline = -log10(6.947918e-07))
+```
