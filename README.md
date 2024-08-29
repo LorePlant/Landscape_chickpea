@@ -278,7 +278,7 @@ loading_prec<-ggplot() +
   theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
 loading_prec
 ```
-The same results can be illustrated by entering the genome position of each SNP to plot a Manhattan plot. We entered Bonferroni and FDR threshold at the respective logP values -log10(0.00013416)and -log10(6.947918e-07). For major detail see the package _qqman_
+The same results can be illustrated by entering the genome position of each SNP to plot a Manhattan plot. We entered FDR and Bonferroni thresholds at the respective logP values -log10(0.00013416)and -log10(6.947918e-07). For major detail see the package _qqman_
 
 ```
 #plotting Mhanattan plot using the library qqman
