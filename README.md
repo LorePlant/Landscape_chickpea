@@ -149,6 +149,7 @@ sqrt(vif.cca(RDAprec))
 RDAprecsel<-rda(genotype ~ bio15 + bio18 + bio19 , Variables )
 ```
 
+RDA combine linear regression with pricipal component analysis. In Landscape genomics it represent a efficient tool to dissect the single effect of environment, spatial and demographic effect on totalt genetic diversity while considering the other as covariate. 
 
 ```
 ##full model
@@ -167,9 +168,82 @@ anova(pRDAstruct)
 pRDAgeog <- rda(genotype ~ dataclim.long + dataclim.lat + Condition(PC1 + PC2 + PC3 +bio8 + bio9 + bio15 + bio18 + bio19), Variables)
 RsquareAdj(pRDAgeog)
 anova(pRDAgeog)
+```
+
+To visualize the environment and geographic effect on differentianting genetic groups we use RDA considering only environment and geographic variable. Results are represented in the RDA biplot
+
+```
 #GEO-POPSTRUCTURE
 pRDAIBD <- rda(genotype ~ dataclim.long + dataclim.lat + bio8 + bio9 + bio15 + bio18, Variables)
 RsquareAdj(pRDAIBD)
 anova(pRDAgeog)
+
+#draw partial RDA geo+env
+colnames(Variables)[colnames(Variables) == 'dataclim.lat'] <- 'Lat'
+colnames(Variables)[colnames(Variables) == 'dataclim.long'] <- 'Long'
+RDAgeo_env <- rda(genotype ~ Long + Lat + bio8 + bio9 + bio15 + bio18 + bio19, Variables)
+summary(eigenvals(RDAgeo_env, model = "constrained"))
+score<-scores(RDAgeo_env , display = "sites")
+write.table(score, "Genotypevalue_RDAgeo_env")
+data_RDAgeo_env <- read.table(file = "clipboard", 
+                              sep = "\t", header=TRUE)
+TAB_gen <- data.frame(geno_names = row.names(score), score)
+install.packages("ggrepel")
+library(ggrepel)
+TAB_var <- as.data.frame(scores(RDAgeo_env, choices=c(1,2), display="bp"))
+loading_RDAgeo_env_K3<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_point(data = data_RDAgeo_env, aes(x=RDA1, y=RDA2, color=GrK3), size = 4.5) +
+  scale_color_manual(values = c("blue", "darkorange", "chartreuse3", "darkgrey")) + 
+  geom_segment(data = TAB_var, aes(xend=RDA1*10, yend=RDA2*10, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=RDA1*10, y=RDA2*11, label = row.names(TAB_var)), size = 4.5, family = "Times") +
+  xlab("RDA 1: 58 %") + ylab("RDA 2: 19 %") +
+  guides(color=guide_legend(title="Genetic group")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(1)), strip.text = element_text(size=13),axis.text.x = element_text(size = 13), axis.text.y = element_text(size = 13))
+loading_RDAgeo_env_K3
+
+#same plot considering genetic groups at K=6
+loading_RDAgeo_env_K6<-ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = data_RDAgeo_env, aes(x=RDA1, y=RDA2, color=GrK6), size = 4.5) +
+  scale_color_manual(values = c("blue", "darkorange", "chartreuse3","yellow", "brown", "purple", "darkgrey")) + 
+  geom_segment(data = TAB_var, aes(xend=RDA1*10, yend=RDA2*10, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_label_repel(data = TAB_var, aes(x=RDA1*10, y=RDA2*11, label = row.names(TAB_var)), size = 4.5, family = "Times") +
+  xlab("RDA 1: 58 %") + ylab("RDA 2: 19 %") +
+  guides(color=guide_legend(title="Genetic group")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(1)), strip.text = element_text(size=13),axis.text.x = element_text(size = 13), axis.text.y = element_text(size = 13))
+loading_RDAgeo_env_K6
+
+ggarrange(loading_RDAgeo_env_K3, loading_RDAgeo_env_K6, nrow=1, ncol=2)
 ```
+We are going to use the RDA for Genotype Environment Association (GEA) to identify loci associated with multivariate environmental space. We run the analysis for the two groups of temperature and precipitation variables considering the geographic (latitude and longitude) and demographic (first three PCs from genomic data) as covariates on both of them. The procedure illustrated in Thibaut Capblancq & Brenna Forester (2021) is to calcolate the Mahallanois distance of SNP markers from the origin in the RDA space. From the distribution of distances for all SNPs Pvalue and qvalus are determinated using the function _rdadapt_
+```
+#Genotype-Environment Associations: identifying loci under selection
+##first step run a RDA model on the genotypic data matrix using all the normalized bioclim variable as explanotory variable and the first 3 PCs as conditioning variable to account for netrual pop structure 
+RDA_env<- rda(genotype ~  bio8 + bio9 + bio15 + bio18 + bio19 + Condition(gr1 + gr2 + gr3 + dataclim.long + dataclim.lat), Variables )
+RDA_temp<-rda(genotype ~ bio9 + bio8 + Condition(PC1 + PC2 + PC3 + dataclim.long + dataclim.lat), Variables )
+RDA_prec<-rda(genotype ~  bio15 + bio18 + bio19 + Condition(PC1 + PC2 + PC3 + dataclim.long + dataclim.lat), Variables )
+plot(RDA_temp)
+screeplot(RDA_prec, main="Eigenvalues of constrained axes")
+summary(eigenvals(RDA_temp, model = "constrained"))
+#function radapt for FDR p-values and q-values
+install.packages("remotes")
+remotes::install_github("koohyun-kwon/rdadapt")
+source("./src/rdadapt.R")
+rdadapt<-function(rda,K)
+{
+  zscores<-rda$CCA$v[,1:as.numeric(K)]
+  resscale <- apply(zscores, 2, scale)
+  resmaha <- covRob(resscale, distance = TRUE, na.action= na.omit, estim="pairwiseGK")$dist
+  lambda <- median(resmaha)/qchisq(0.5,df=K)
+  reschi2test <- pchisq(resmaha/lambda,K,lower.tail=FALSE)
+  qval <- qvalue(reschi2test)
+  q.values_rdadapt<-qval$qvalues
+  return(data.frame(p.values=reschi2test, q.values=q.values_rdadapt))
+}
+
 
