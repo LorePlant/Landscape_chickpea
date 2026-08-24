@@ -1,0 +1,71 @@
+
+setwd("/Users/Asus/OneDrive - Università Politecnica delle Marche/PhD/EMCAP533/Landscape_210") 
+
+library(ggplot2)
+install.packages("gridExtra")
+library(gridExtra)
+install.packages("modelr")
+library(modelr)
+install.packages("rgdal")
+library(rgdal)
+install.packages("dplyr")
+library(dplyr)
+install.packages("raster")
+library(raster)
+install.packages("rgda")
+library(rgdal)
+install.packages("tmap")
+library(tmap)
+install.packages(c("cowplot", "googleway", "ggplot2", "ggrepel", 
+                   "ggspatial", "libwgeom", "sf", "rnaturalearth", "rnaturalearthdata"))
+
+library("ggplot2")
+theme_set(theme_bw())
+library("sf")
+
+
+#enter coordintes
+df<-read.table("long_lat.txt", header=TRUE)
+lats<- df[, c(2)]
+lons<- df[, c(1)]
+coords <- data.frame(x=lons,y=lats)
+
+                           
+                           
+                           #get bio worldclim variable
+                           r <- getData("worldclim",var="bio",res=0.5, lon = 78, lat = 17)#res=0.5, lon = -15, lat = 28) higher resolution, but less coverage
+                           coords <- data.frame(x=lons,y=lats)
+                           points <- SpatialPoints(coords, proj4string = r@crs)
+                           values <- extract(r,points)
+                           df_bio <- cbind.data.frame(coordinates(points),values)
+                           write.table(df_bio, file="bio30s.txt", sep = "/", 
+                                       col.names = TRUE, append = FALSE)
+                           
+                           #get tmean worldclim variable
+                           r <- getData("worldclim",var="tmean",res=10)#res=0.5, lon = -15, lat = 28) higher resolution, but less coverage
+                           coords <- data.frame(x=lons,y=lats)
+                           points <- SpatialPoints(coords, proj4string = r@crs)
+                           values <- extract(r,points)
+                           df_tmean <- cbind.data.frame(coordinates(points),values)
+                           write.table(df_tmax, file="tmean.txt", sep = "/t", 
+                                       col.names = TRUE, append = FALSE)
+                           
+                           #get tmin worldclim variable
+                           r <- getData("worldclim",var="tmin",res=10)#res=0.5, lon = -15, lat = 28) higher resolution, but less coverage
+                           coords <- data.frame(x=lons,y=lats)
+                           points <- SpatialPoints(coords, proj4string = r@crs)
+                           values <- extract(r,points)
+                           df_tmin <- cbind.data.frame(coordinates(points),values)
+                           write.table(df_tmax, file="tmin.txt", sep = "/t", 
+                                       col.names = TRUE, append = FALSE)
+                           
+                           #get prec worldclim variable
+                           r <- getData("worldclim",var="prec",res=10)#res=0.5, lon = -15, lat = 28) higher resolution, but less coverage
+                           coords <- data.frame(x=lons,y=lats)
+                           points <- SpatialPoints(coords, proj4string = r@crs)
+                           values <- extract(r,points)
+                           df_prec <- cbind.data.frame(coordinates(points),values)
+                           write.table(df_tmax, file="prec.txt", sep = "/t", 
+                                       col.names = TRUE, append = FALSE)
+                           
+                           
