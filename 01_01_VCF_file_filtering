@@ -1,0 +1,57 @@
+Using vcftools filter out:
+- INDELs (--remove-indels) 
+---max-missing 0.90 - #we can also try with 0.5 and see how it goes) 
+- sites that have a minor allele count of less than 3 (--mac 3) #This is relative to genotypes, so it has to be called in at least 1 homozygote and 1 heterozygote or 3 heterozygotes. 
+
+In addition:
+--minDP 3 This command will recode genotypes that have less than 3 reads - see Wang et al., 2020 (https://jasbsci.biomedcentral.com/articles/10.1186/s40104-019-0407-9)for minimum depth criteria before imputing GBS datafiles.
+--maf 0.05 filter out sites with MAF lower than 5%
+
+#sites filtering
+vcftools --gzvcf /gatk/data/Cece/EMCAP_533/variants.selected.vcf.gz --remove-indels --max-missing 0.90 --mac 3 --minDP 3 --maf 0.05 --remove-filtered-geno LowQual --recode --recode-INFO-all --out /gatk/data/Cece/EMCAP_533/chickpea_filtered_missing90.vcf
+
+#check individuals missingness
+vcftools --vcf EMCAP_532_SNPs_chr1-8_miss90.vcf.recode.vcf --missing-indv --out missing_chickpea_all_1kindsnps_FINAL_filtered
+
+##check chromosome name
+bcftools query -f '%CHROM\n' variants.selected.vcf.gz |uniq
+
+#select biallelic sites
+vcftools --vcf chickpea_filtered_missing90.vcf.recode.vcf --min-alleles 2 --max-alleles 2 --recode --recode-INFO-all --out /gatk/data/Cece/EMCAP_533/Chickpea_filtered_miss90_biallelicsites.vcf
+
+
+# change the chromosome notation which has this prefix: "CDCFrontier_v11|"
+#so to change the annotation use bcftools:
+bcftools annotate --rename-chrs rename.txt Chickpea_filtered_miss90_biallelicsites.vcf.recode.vcf -Oz -o  EMCAP_532_chr1-8_and_scaffold_miss90.vcf
+##file rename.txt
+CDCFrontier_v11|chr1 1
+CDCFrontier_v11|chr2 2
+CDCFrontier_v11|chr3 3
+CDCFrontier_v11|chr4 4
+CDCFrontier_v11|chr5 5
+CDCFrontier_v11|chr6 6
+CDCFrontier_v11|chr7 7
+CDCFrontier_v11|chr8 8
+
+
+##check chromosome name
+bcftools query -f '%CHROM\n' EMCAP_532_chr1-8_and_scaffold_miss90 |uniq
+
+#remouve scaffold and keep only chr SNP
+vcftools --vcf EMCAP_532_chr1-8_and_scaffold_miss90.vcf --chr 1  --chr 2 --chr 3 --chr 4 --chr 5 --chr 6 --chr 7 --chr 8  --recode --recode-INFO-all --out /gatk/data/Cece/EMCAP_533/EMCAP_532_SNPs_chr1-8_miss90.vcf
+
+#check individuals missingness
+vcftools --vcf EMCAP_532_SNPs_chr1-8_miss90.vcf.recode.vcf --missing-indv --out missing_chickpea_all_1kindsnps_FINAL_filtered
+
+
+#Trasform the thinned vcf in file.bed
+/home/plink-ng/1.9/plink --vcf /gatk/data/Cece/EMCAP_533/EMCAP_532_SNPs_chr1-8_miss90_thinned.vcf.recode.vcf --allow-extra-chr --double-id --make-bed --recode A --out /gatk/data/Cece/EMCAP_533/EMCAP_532_SNPs_chr1-8_miss90_thinned_readyADM
+
+#Admixture
+for K in 1 2 3 4 5 6 7 8;
+  do ./admixture --cv=10 /gatk/data/Cece/EMCAP_533/EMCAP_532_SNPs_chr1-8_miss90_thinned_readyADM.bed $K | tee log${K}.out; done
+
+
+#trasnform file in hmp for PCA analysis with Tassel5
+
+/home/tassel-5-standalone/run_pipeline.pl -Xmx20g -fork1 -vcf /gatk/data/Cece/EMCAP_533/EMCAP_532_SNPs_chr1-8_miss90_thinned.vcf.recode.vcf -export /gatk/data/Cece/EMCAP_533/EMCAP_532_SNPs_chr1-8_miss90_thinned.vcf.recode.hmp -r unfork1
