@@ -1,0 +1,19 @@
+#imputate vcf file using BEAGLE
+
+WARNING! When filtering the raw datafile, in the recoding steps, for some loci in few individuals the missing alleles are are recoded as "." and not "./." (should be related to the use of --maf filtering with vcftools)
+
+THIS RECODING causes few errors in beagle, which asks to remove these target loci
+ 
+SO after checking on the internet (Biostars site) I've found a perl command which I slightly modified to use it with macox:
+
+cat /gatk/data/Cece/EMCAP_533/EMCAP_532_SNPs_chr1-8_miss90.vcf.recode.vcf | perl -pe "s/\s\.:/\t.\/.:/g" > /gatk/data/Cece/EMCAP_533/EMCAP_532_SNPs_chr1-8_miss90_ready_beagle.vcf.recode.vcf
+
+
+java -Xmx50g -jar beagle.28Jun21.220.jar gt=/gatk/data/Cece/EMCAP_533/EMCAP_532_SNPs_chr1-8_miss90_ready_beagle.vcf.recode.vcf out=/gatk/data/Cece/EMCAP_533/EMCAP_532_SNPs_chr1-8_miss90_imputated.vcf
+
+# filter il file 208 accession
+
+vcftools --gzvcf /gatk/data/Cece/EMCAP_533/EMCAP_532_SNPs_chr1-8_miss90_imputated.vcf.vcf.gz --keep genolist_geolocalized.txt  --recode --recode-INFO-all --out /gatk/data/Cece/EMCAP_533/EMCAP_208_geolocalize_miss90.vcf 
+
+# to reduce the number of SNP lets tray to do a thinning of 50Kb
+vcftools --vcf /gatk/data/Cece/EMCAP_533/EMCAP_208_geolocalize_miss90.vcf.recode.vcf --thin 10000  --recode --recode-INFO-all --out /gatk/data/Cece/EMCAP_533/EMCAP_533_SNPs_chr1-8_geolocalize_miss90_thinned10Kb.vcf
